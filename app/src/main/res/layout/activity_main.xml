@@ -39,7 +39,8 @@
             android:layout_height="wrap_content"
             android:contentDescription="@string/app_name"
             android:src="@android:drawable/ic_menu_search"
-            android:id="@+id/imgSearch"/>
+            android:id="@+id/imgSearch"
+            app:tint="@color/black" />
 
         <EditText
             android:id="@+id/inputSearch"

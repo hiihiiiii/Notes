@@ -1,6 +1,7 @@
 package com.example.notee.activities;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -54,6 +55,7 @@ public class CreateNoteActivity extends AppCompatActivity {
     private LinearLayout layoutWebUrl;
 
     private AlertDialog dialogUrl;
+    private AlertDialog dialogDeleteNote;
     private Note alreadyAvailableNote;
 
     private  static  final int REQUEST_CODE_PERMISSION=1;
@@ -85,7 +87,8 @@ public class CreateNoteActivity extends AppCompatActivity {
         imgSave.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                saveNote();
+                if(!inputNoteTitle.getText().toString().trim().isEmpty() || !inputNoteSubtitle.getText().toString().trim().isEmpty() )
+                    saveNote();
             }
         });
 
@@ -95,6 +98,38 @@ public class CreateNoteActivity extends AppCompatActivity {
         if(getIntent().getBooleanExtra("isVieworUpdate",false)){
             alreadyAvailableNote=(Note) getIntent().getSerializableExtra("note");
             setVieworUpdateNote();
+        }
+
+        findViewById(R.id.imgageRemoveUrl).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                textWebUrl.setText(null);
+                layoutWebUrl.setVisibility(View.GONE);
+            }
+        });
+        findViewById(R.id.imageRemoveImage).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                imageNote.setImageBitmap(null);
+                imageNote.setVisibility(View.GONE);
+                findViewById(R.id.imageRemoveImage).setVisibility(View.GONE);
+                selectedImagePath="";
+            }
+        });
+
+        if(getIntent().getBooleanExtra("isFromQuickActions",false)){
+            String type= getIntent().getStringExtra("quickActionType");
+            if(type!=null){
+                if(type.equals("image")){
+                    selectedImagePath=getIntent().getStringExtra("imagePath");
+                    imageNote.setImageBitmap(BitmapFactory.decodeFile(selectedImagePath));
+                    imageNote.setVisibility(View.VISIBLE);
+                    findViewById(R.id.imageRemoveImage).setVisibility(View.VISIBLE);
+                } else if (type.equals("URL")) {
+                    textWebUrl.setText(getIntent().getStringExtra("URL"));
+                    layoutWebUrl.setVisibility(View.VISIBLE);
+                }
+            }
         }
 
         initMiscellaneous();
@@ -108,6 +143,7 @@ public class CreateNoteActivity extends AppCompatActivity {
         if(alreadyAvailableNote.getImagePath()!= null && !alreadyAvailableNote.getImagePath().trim().isEmpty()){
             imageNote.setImageBitmap(BitmapFactory.decodeFile(alreadyAvailableNote.getImagePath()));
             imageNote.setVisibility(View.VISIBLE);
+            findViewById(R.id.imageRemoveImage).setVisibility(View.VISIBLE);
             selectedImagePath=alreadyAvailableNote.getImagePath();
         }
         if(alreadyAvailableNote.getWebLink()!= null && !alreadyAvailableNote.getWebLink().trim().isEmpty()){
@@ -282,7 +318,73 @@ public class CreateNoteActivity extends AppCompatActivity {
                 showAddUrlDialog();
             }
         });
+
+        if(alreadyAvailableNote!= null){
+            layoutMiscellaneous.findViewById(R.id.layoutDeleteNote).setVisibility(View.VISIBLE);
+            layoutMiscellaneous.findViewById(R.id.layoutDeleteNote).setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+                    showDeleteNoteDialog();
+                }
+            });
+        }
+
     }
+
+
+    private void showDeleteNoteDialog(){
+
+        if(dialogDeleteNote==null){
+            AlertDialog.Builder builder= new AlertDialog.Builder(CreateNoteActivity.this);
+            View view= LayoutInflater.from(this).inflate(
+                    R.layout.layout_delete_note,
+                    (ViewGroup) findViewById(R.id.layoutDeleteNoteContainer)
+            );
+            builder.setView(view);
+            dialogDeleteNote= builder.create();
+            if(dialogDeleteNote.getWindow()!= null){
+                dialogDeleteNote.getWindow().setBackgroundDrawable(new ColorDrawable());
+            }
+
+            view.findViewById(R.id.textDeleteNote).setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    @SuppressLint("StaticFieldLeak")
+                    class  DeleteNoteTask extends AsyncTask<Void,Void,Void>{
+
+                        @Override
+                        protected Void doInBackground(Void... voids) {
+
+                            NotesDatabase.getNotesDatabase(getApplicationContext()).noteDao().deleteNote(alreadyAvailableNote);
+                            return null;
+                        }
+
+                        @Override
+                        protected void onPostExecute(Void unused) {
+                            super.onPostExecute(unused);
+                            Intent intent= new Intent();
+                            intent.putExtra("isNoteDeleted",true);
+                            setResult(RESULT_OK,intent);
+                            finish();
+                        }
+                    }
+
+                    new DeleteNoteTask().execute();
+                }
+            });
+
+            view.findViewById(R.id.textCancle).setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    dialogDeleteNote.dismiss();
+                }
+            });
+        }
+        dialogDeleteNote.show();
+
+    }
+
     private void setSubtilteIndicator(){
         GradientDrawable gradientDrawable= (GradientDrawable) viewSubtitleIndicator.getBackground();
         gradientDrawable.setColor(Color.parseColor(selectedNoteColor));
@@ -317,6 +419,8 @@ public class CreateNoteActivity extends AppCompatActivity {
                         Bitmap bitmap= BitmapFactory.decodeStream(inputStream);
                         imageNote.setImageBitmap(bitmap);
                         imageNote.setVisibility(View.VISIBLE);
+
+                        findViewById(R.id.imageRemoveImage).setVisibility(View.VISIBLE);
                         selectedImagePath= getPathFromUri(selectedImageUri);
                     //   Log.i(selectedImagePath,"path");
                       //  inputStream.close();
